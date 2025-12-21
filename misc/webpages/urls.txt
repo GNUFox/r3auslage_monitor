@@ -1,0 +1,4 @@
+meteoblue.png https://my.meteoblue.com/visimage/meteogram_web_hd?look=KILOMETER_PER_HOUR%2CCELSIUS%2CMILLIMETER&apikey=5838a18e295d&temperature=C&windspeed=kmh&precipitationamount=mm&winddirection=3char&city=Graz&iso2=at&lat=47.0667&lon=15.45&asl=363&tz=Europe%2FVienna&lang=de&sig=c4c4a60e411e33ed01c14c8370a03cff
+karte.ffgraz.net.png https://karte.ffgraz.net/?lat=47.065&lon=15.45&res=12
+status.realraum.at.png https://status.realraum.at/
+aprs.fi.png https://aprs.fi/#!z=12&lat=47.0689&lng=15.4435&call=&others=1&timerange=21600&tail=21600 
