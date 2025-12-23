@@ -27,9 +27,9 @@ class Config:
         self.n_webpages: int = 1
         self.n_photos: int = 3
         self.random: bool = False
-        self.photos_dir: str = ""
-        self.webpages_dir: str = ""
+        self.media: list = []
         self.viewer: str = "fbi"
+        self.timeout: int = 10
         if not config_file:
             return
         # TODO: parse config file
@@ -149,17 +149,18 @@ class MediaListManager:
 
 def present_content(path: str):
     """Runs framebuffer program to present content refered to by 'path'"""
-    # fbi = subprocess.Popen(["fbi", path])
-    fbi = subprocess.Popen([presentation_config.viewer, path])
+    viewer = subprocess.Popen(f"exec {presentation_config.viewer} {path}", shell=True)
     ev_stop_showing_img.wait()
-    fbi.terminate()
+    #os.kill(viewer.pid, signal.SIGKILL) 
+    viewer.terminate()
+    #viewer.kill()
 
 
 def run_slideshow():
     """Controls the slideshow flow"""
     ml_manager: MediaListManager = MediaListManager()
-    ml_manager.add_media_list_from_path(presentation_config.webpages_dir)
-    ml_manager.add_media_list_from_path(presentation_config.photos_dir, show_this_many_in_a_row=3)
+    for m in presentation_config.media:
+        ml_manager.add_media_list_from_path(m[0], int(m[1]))
 
     if not ml_manager.is_there_something_to_show():
         print("no files to show")
@@ -171,7 +172,8 @@ def run_slideshow():
 
         th_show_image = threading.Thread(target=present_content, args=[file])
         th_show_image.start()
-        ev_stop_program.wait(timeout=2)
+        ev_stop_program.wait(timeout=presentation_config.timeout)
+        #th_show_image.join()
         ev_stop_showing_img.set()
         ev_stop_showing_img.clear()
     # endwhile
@@ -186,20 +188,12 @@ def main():
     parser.add_argument("-v", "--verbose", type=int, dest="verbose", help="verbosity level")
     parser.add_argument("-c", "--config", type=str, dest="config", help="config file")
     parser.add_argument(
-        "-p",
-        "--photos",
+        "-m",
+        "--media",
         action="append",
-        dest="photos",
+        dest="media",
         nargs="+",
-        help="photos directory",
-    )
-    parser.add_argument(
-        "-w",
-        "--webpages",
-        action="append",
-        dest="webpages",
-        nargs="+",
-        help="webpages directory",
+        help="[media directory] (n)   n: show n media files from this dir consecutively",
     )
     parser.add_argument(
         "--viewer",
@@ -207,8 +201,7 @@ def main():
         dest="viewer",
         help="name of / path to the image viewer to use",
     )
-
-    parser.add_argument("--test-single-file", type=str, dest="single_file")
+    parser.add_argument("-t", "--timeout", type=int, dest="timeout", help="how long to show each media file")
 
     args = parser.parse_args()
 
@@ -222,16 +215,22 @@ def main():
     if args.verbose:
         presentation_config.verbosity_level = args.verbose
 
-    if args.photos:
-        presentation_config.photos_dir = str(args.photos[0][0])  # TODO: handle list
-    if args.webpages:
-        presentation_config.webpages_dir = str(args.webpages[0][0])  # TODO: handle list
-
-    if args.single_file:
-        single_file = str(args.single_file)
+    if args.media:
+        media = args.media
+        if (len(media) > 0):
+            for m in media:
+                if(not len(m) == 2):
+                    logger.error("Expecting argument to be of format <path> <n>")
+                    ev_stop_program.set()
+                    break
+        if not ev_stop_program.is_set():
+            presentation_config.media = args.media
 
     if args.viewer:
         presentation_config.viewer = str(args.viewer)
+    
+    if args.timeout:
+        presentation_config.timeout = int(args.timeout)
 
     run_slideshow()
 
