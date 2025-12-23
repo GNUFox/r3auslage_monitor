@@ -4,33 +4,55 @@ import threading
 import os
 import time
 
-verbosity_level: int = 0
-viewer: str = "fbi"
 ev_stop_showing_img: threading.Event = threading.Event()
 
 
-def show_image(path: str):
+# TODO: catch keyboard interrupt
+# TODO: try mpv with framebuffer, so we could also play videos?
+
+
+class config:
+    verbosity_level: int = 0
+    n_webpages: int = 1
+    n_photos: int = 3
+    random: bool = False
+    photos_dir: str = ""
+    webpages_dir: str = ""
+    viewer: str = "fbi"
+
+    def __init__(self, config_file: [str | None] = None):
+        if not config_file:
+            return
+        # TODO: parse config file
+
+
+presentation_config: config = config()
+
+
+def present_content(path: str):
+    """Runs framebuffer program to present content refered to by 'path'"""
     # fbi = subprocess.Popen(["fbi", path])
-    fbi = subprocess.Popen([viewer, path])
+    fbi = subprocess.Popen([presentation_config.viewer, path])
     ev_stop_showing_img.wait()
     fbi.terminate()
 
 
-def run_slideshow(webpages_dir: str, photos_dir: str):
+def run_slideshow():
+    """Controls the slideshow flow"""
     l_webpages: list[str] = []
     l_photos: list[str] = []
 
-    if webpages_dir:
+    if presentation_config.webpages_dir:
         l_webpages = [
-            os.path.join(webpages_dir, contents)
-            for contents in os.listdir(webpages_dir)
-            if os.path.isfile(os.path.join(webpages_dir, contents))
+            os.path.join(presentation_config.webpages_dir, contents)
+            for contents in os.listdir(presentation_config.webpages_dir)
+            if os.path.isfile(os.path.join(presentation_config.webpages_dir, contents))
         ]
-    if photos_dir:
+    if presentation_config.photos_dir:
         l_photos = [
-            os.path.join(photos_dir, contents)
-            for contents in os.listdir(photos_dir)
-            if os.path.isfile(os.path.join(photos_dir, contents))
+            os.path.join(presentation_config.photos_dir, contents)
+            for contents in os.listdir(presentation_config.photos_dir)
+            if os.path.isfile(os.path.join(presentation_config.photos_dir, contents))
         ]
 
     if len(l_webpages) == 0:
@@ -41,18 +63,37 @@ def run_slideshow(webpages_dir: str, photos_dir: str):
         print("no files to show")
         return
 
-    for file in l_webpages:
-        print(f"showing {file}")
-        th_show_image = threading.Thread(target=show_image, args=[file])
+    i_photo: int = 0
+    i_webpage: int = 0
+    b_webpage_presented: bool = True  # webpage = true
+    while True:
+        file: str = ""
+        if i_photo + 1 == len(l_photos):
+            i_photo = 0
+        if i_webpage + 1 == len(l_webpages):
+            i_webpage = 0
+
+        if not i_photo % config.n_photos and not b_webpage_presented:
+            # present webpage
+            file = l_webpages[i_webpage]
+            i_webpage += 1
+            b_webpage_presented = True
+        else:
+            # prseent photo
+            file = l_photos[i_photo]
+            i_photo += 1
+            b_webpage_presented = False
+
+        th_show_image = threading.Thread(target=present_content, args=[file])
         th_show_image.start()
         time.sleep(2)
         ev_stop_showing_img.set()
         ev_stop_showing_img.clear()
+    # endwhile
 
 
 def main():
     """Main entry point"""
-    global verbosity_level, viewer
 
     parser = argparse.ArgumentParser(
         description="Present rnadom images + webpages uing fbi"
@@ -88,32 +129,28 @@ def main():
 
     args = parser.parse_args()
 
-    single_file: str = ""
-    photos_dir: str = ""
-    webpages_dir: str = ""
     config_file: str = ""
-    viewer = "fbi"
 
     if args.config:
         config_file = str(args.config)
-
-    # TODO: parse config file
+        # TODO: check if config file exists
+        presentation_config.__init__(config_file=config_file)
 
     if args.verbose:
-        verbosity_level = args.verbose
+        presentation_config.verbosity_level = args.verbose
 
     if args.photos:
-        photos_dir = str(args.photos[0][0])  # TODO: handle list
+        presentation_config.photos_dir = str(args.photos[0][0])  # TODO: handle list
     if args.webpages:
-        webpages_dir = str(args.webpages[0][0])  # TODO: handle list
+        presentation_config.webpages_dir = str(args.webpages[0][0])  # TODO: handle list
 
     if args.single_file:
         single_file = str(args.single_file)
 
     if args.viewer:
-        viewer = str(args.viewer)
+        presentation_config.viewer = str(args.viewer)
 
-    run_slideshow(webpages_dir, photos_dir)
+    run_slideshow()
 
 
 if __name__ == "__main__":
