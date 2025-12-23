@@ -10,7 +10,7 @@
             "request": "launch",
             "program": "present.py",
             "console": "integratedTerminal",
-            "args": ["--test-single-file","/tmp/aprs.fi.png"]
+            "args": ["-w","/tmp/a"]
         },
         {
             "name": "Python Debugger: Current File",
