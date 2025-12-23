@@ -11,12 +11,11 @@
             "program": "present.py",
             "console": "integratedTerminal",
             "args": [
-                "-w",
-                "${workspaceFolder}/webpages",
-                "-p",
-                "${workspaceFolder}/photos",
-                "--viewer",
-                "mpv"
+                "-m", "${workspaceFolder}/webpages", "1",
+                "-m", "${workspaceFolder}/photos", "3",
+                "-m", "${workspaceFolder}/videos", "1",
+                "--viewer", "mpv --loop --ao=null",
+                "-t", "2"
             ]
         },
         {
