@@ -12,9 +12,9 @@
             "console": "integratedTerminal",
             "args": [
                 "-w",
-                "/home/mr/Dokumente/Projekte/r3auslage_monitor/webpages",
+                "${workspaceFolder}/webpages",
                 "-p",
-                "/home/mr/Dokumente/R3/R3BILDER",
+                "${workspaceFolder}/photos",
                 "--viewer",
                 "mpv"
             ]

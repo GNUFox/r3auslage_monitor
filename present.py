@@ -3,30 +3,148 @@ import subprocess
 import threading
 import os
 import time
+import logging
+import signal
+
+logger = logging.getLogger(__name__)
 
 ev_stop_showing_img: threading.Event = threading.Event()
+ev_stop_program: threading.Event = threading.Event()
 
+
+def catch_sigint(sig, frame):
+    logger.info("Exiting")
+    ev_stop_program.set()
+    ev_stop_showing_img.set()
 
 # TODO: catch keyboard interrupt
 # TODO: try mpv with framebuffer, so we could also play videos?
 
 
-class config:
-    verbosity_level: int = 0
-    n_webpages: int = 1
-    n_photos: int = 3
-    random: bool = False
-    photos_dir: str = ""
-    webpages_dir: str = ""
-    viewer: str = "fbi"
-
+class Config:
     def __init__(self, config_file: [str | None] = None):
+        verbosity_level: int = 0
+        self.n_webpages: int = 1
+        self.n_photos: int = 3
+        self.random: bool = False
+        self.photos_dir: str = ""
+        self.webpages_dir: str = ""
+        self.viewer: str = "fbi"
         if not config_file:
             return
         # TODO: parse config file
 
 
-presentation_config: config = config()
+presentation_config: Config = Config()
+
+
+class MediaList:
+
+    def __init__(self, show_in_a_row: int = 1, l_path: list[str] = None):
+        """Set up a list of media (paths to files)
+
+        Args:
+            show_in_a_row (int, optional): show this many items from this media list in a row. Defaults to 1.
+            l_path (list[str], optional):  List of paths to media files. Defaults to None.
+                                           If none are provided you must add them later for the list to be useful
+        """
+        self._i_current: int = 0
+        self._correct: bool = False
+        self._l_path: list[str] = l_path
+        self.n_show_in_a_row = show_in_a_row
+        self._n_showed = 0
+        if len(self._l_path) == 0:
+            self._correct = False
+        else:
+            self._correct = True
+
+    def get_next_media_path(self) -> str:
+        """Return the path to the next media file.
+        When called multiple times it will start at the beginning of the list.
+        If the list is empty an empty path will be returned.
+
+        Returns:
+            str: path to the next media file
+        """
+        if not self._correct:
+            return ""
+
+        if self._i_current + 1 >= len(self._l_path):
+            self._i_current = 0
+        retval = self._l_path[self._i_current]
+        self._i_current += 1
+        self._n_showed += 1
+        return retval
+
+    def has_content(self) -> bool:
+        """check if the MediaList has content
+
+        Returns:
+            bool: _description_
+        """
+        return len(self._l_path) > 0
+
+    def is_my_turn(self) -> bool:
+        if not self.has_content():
+            return False
+        if self._n_showed < self.n_show_in_a_row:
+            return True
+        else:
+            self._n_showed = 0
+            return False
+
+    def reset_turn(self) -> None:
+        self._n_showed = 0
+
+
+class MediaListManager:
+
+    def __init__(self):
+        self._media_lists: list[MediaList] = []
+        self._i_mlist: int = 0
+
+    # reate a new MediaList from a path (directory or glob expression) + add it to the MediaListManager
+    def add_media_list_from_path(self, path: str, show_this_many_in_a_row=1) -> None:
+        if len(path) == 0:
+            logger.warning("path empty")
+            return
+        l_media = [
+            os.path.join(path, contents)
+            for contents in os.listdir(path)
+            if os.path.isfile(os.path.join(path, contents))
+        ]
+        media_list = MediaList(show_in_a_row=show_this_many_in_a_row, l_path=l_media)
+        self._media_lists.append(media_list)
+
+    def get_next_media(self) -> str:
+        current_ml = self._get_next_ml()
+        return current_ml.get_next_media_path()
+    
+    def _get_next_ml(self) -> [MediaList | None]:
+        ml_len: int = len(self._media_lists)
+        if ml_len == 0:
+            return None
+        
+        ml = self._media_lists[self._i_mlist]
+        if(ml.is_my_turn()):
+            return ml
+        else:
+            if self._i_mlist + 1 >= ml_len:
+                self._i_mlist = 0
+                for ml in self._media_lists:
+                    ml.reset_turn()
+            else:
+                self._i_mlist += 1
+            ml = self._media_lists[self._i_mlist]
+        return ml
+
+    def is_there_something_to_show(self) -> bool:
+        show: bool = False
+        for ml in self._media_lists:
+            if ml.has_content():
+                show = True
+                break
+        return show
 
 
 def present_content(path: str):
@@ -39,54 +157,21 @@ def present_content(path: str):
 
 def run_slideshow():
     """Controls the slideshow flow"""
-    l_webpages: list[str] = []
-    l_photos: list[str] = []
+    ml_manager: MediaListManager = MediaListManager()
+    ml_manager.add_media_list_from_path(presentation_config.webpages_dir)
+    ml_manager.add_media_list_from_path(presentation_config.photos_dir, show_this_many_in_a_row=3)
 
-    if presentation_config.webpages_dir:
-        l_webpages = [
-            os.path.join(presentation_config.webpages_dir, contents)
-            for contents in os.listdir(presentation_config.webpages_dir)
-            if os.path.isfile(os.path.join(presentation_config.webpages_dir, contents))
-        ]
-    if presentation_config.photos_dir:
-        l_photos = [
-            os.path.join(presentation_config.photos_dir, contents)
-            for contents in os.listdir(presentation_config.photos_dir)
-            if os.path.isfile(os.path.join(presentation_config.photos_dir, contents))
-        ]
-
-    if len(l_webpages) == 0:
-        print("webpages dir is empty")
-    if len(l_photos) == 0:
-        print("photos dir is empty")
-    if len(l_photos) == 0 and len(l_webpages) == 0:
+    if not ml_manager.is_there_something_to_show():
         print("no files to show")
         return
 
-    i_photo: int = 0
-    i_webpage: int = 0
-    b_webpage_presented: bool = True  # webpage = true
-    while True:
+    while not ev_stop_program.is_set():
         file: str = ""
-        if i_photo + 1 == len(l_photos):
-            i_photo = 0
-        if i_webpage + 1 == len(l_webpages):
-            i_webpage = 0
-
-        if not i_photo % config.n_photos and not b_webpage_presented:
-            # present webpage
-            file = l_webpages[i_webpage]
-            i_webpage += 1
-            b_webpage_presented = True
-        else:
-            # prseent photo
-            file = l_photos[i_photo]
-            i_photo += 1
-            b_webpage_presented = False
+        file = ml_manager.get_next_media()
 
         th_show_image = threading.Thread(target=present_content, args=[file])
         th_show_image.start()
-        time.sleep(2)
+        ev_stop_program.wait(timeout=2)
         ev_stop_showing_img.set()
         ev_stop_showing_img.clear()
     # endwhile
@@ -95,12 +180,10 @@ def run_slideshow():
 def main():
     """Main entry point"""
 
-    parser = argparse.ArgumentParser(
-        description="Present rnadom images + webpages uing fbi"
-    )
-    parser.add_argument(
-        "-v", "--verbose", type=int, dest="verbose", help="verbosity level"
-    )
+    signal.signal(signal.SIGINT, catch_sigint)
+
+    parser = argparse.ArgumentParser(description="Present rnadom images + webpages uing fbi")
+    parser.add_argument("-v", "--verbose", type=int, dest="verbose", help="verbosity level")
     parser.add_argument("-c", "--config", type=str, dest="config", help="config file")
     parser.add_argument(
         "-p",
