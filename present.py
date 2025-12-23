@@ -151,7 +151,8 @@ def present_content(path: str):
     """Runs framebuffer program to present content refered to by 'path'"""
     viewer = subprocess.Popen(f"exec {presentation_config.viewer} {path}", shell=True)
     ev_stop_showing_img.wait()
-    #os.kill(viewer.pid, signal.SIGKILL) 
+    #os.kill(viewer.pid, signal.SIGKILL)
+    time.sleep(0.5)
     viewer.terminate()
     #viewer.kill()
 
