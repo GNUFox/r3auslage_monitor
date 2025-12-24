@@ -75,7 +75,7 @@ class MediaList:
         if not self._correct:
             return ""
 
-        if self._i_current + 1 >= len(self._l_path):
+        if self._i_current + 1 > len(self._l_path):
             self._i_current = 0
         retval = self._l_path[self._i_current]
         self._i_current += 1
@@ -124,6 +124,8 @@ class MediaListManager:
 
     def get_next_media(self) -> str:
         current_ml = self._get_next_ml()
+        if not current_ml:
+            return "pixel.png" # TODO: remove hardcoded paths, this is only for testing
         return current_ml.get_next_media_path()
 
     def _get_next_ml(self) -> [MediaList | None]:
@@ -175,7 +177,7 @@ def run_slideshow():
         return
 
     start_mpv_json_ipc_server()
-    time.sleep(1)
+    time.sleep(5) # give mpv some time to start :(, hdd is slow
     mpv = MPV(start_mpv=False, ipc_socket="/tmp/mpv-socket")
 
     while not ev_stop_program.is_set():
