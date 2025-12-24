@@ -175,6 +175,7 @@ def run_slideshow():
         return
 
     start_mpv_json_ipc_server()
+    time.sleep(1)
     mpv = MPV(start_mpv=False, ipc_socket="/tmp/mpv-socket")
 
     while not ev_stop_program.is_set():
@@ -193,7 +194,7 @@ def run_slideshow():
 def start_mpv_json_ipc_server():
     mpv = subprocess.Popen(f"exec {presentation_config.viewer} "\
                             "--input-ipc-server=/tmp/mpv-socket "\
-                            "/tmp/a/aprs.fi.png", shell=True)
+                            "pixel.png", shell=True)
 
 
 def main():
