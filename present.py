@@ -5,6 +5,7 @@ import os
 import time
 import logging
 import signal
+from python_mpv_jsonipc import MPV
 
 logger = logging.getLogger(__name__)
 
@@ -16,6 +17,7 @@ def catch_sigint(sig, frame):
     logger.info("Exiting")
     ev_stop_program.set()
     ev_stop_showing_img.set()
+
 
 # TODO: catch keyboard interrupt
 # TODO: try mpv with framebuffer, so we could also play videos?
@@ -30,6 +32,10 @@ class Config:
         self.media: list = []
         self.viewer: str = "fbi"
         self.timeout: int = 10
+
+        self.mpv_ipc_socket: str = "/tmp/mpv-socket"
+        self.mpv: MPV
+
         if not config_file:
             return
         # TODO: parse config file
@@ -119,14 +125,14 @@ class MediaListManager:
     def get_next_media(self) -> str:
         current_ml = self._get_next_ml()
         return current_ml.get_next_media_path()
-    
+
     def _get_next_ml(self) -> [MediaList | None]:
         ml_len: int = len(self._media_lists)
         if ml_len == 0:
             return None
-        
+
         ml = self._media_lists[self._i_mlist]
-        if(ml.is_my_turn()):
+        if ml.is_my_turn():
             return ml
         else:
             if self._i_mlist + 1 >= ml_len:
@@ -147,14 +153,15 @@ class MediaListManager:
         return show
 
 
-def present_content(path: str):
+def present_content(mpv: MPV, path: str):
     """Runs framebuffer program to present content refered to by 'path'"""
-    viewer = subprocess.Popen(f"exec {presentation_config.viewer} {path}", shell=True)
-    ev_stop_showing_img.wait()
-    #os.kill(viewer.pid, signal.SIGKILL)
-    time.sleep(0.5)
-    viewer.terminate()
-    #viewer.kill()
+    # viewer = subprocess.Popen(f"exec {presentation_config.viewer} {path}", shell=True)
+    # ev_stop_showing_img.wait()
+    # os.kill(viewer.pid, signal.SIGKILL)
+    # time.sleep(0.5)
+    # viewer.terminate()
+    # viewer.kill()
+    mpv.play(path)
 
 
 def run_slideshow():
@@ -167,17 +174,26 @@ def run_slideshow():
         print("no files to show")
         return
 
+    start_mpv_json_ipc_server()
+    mpv = MPV(start_mpv=False, ipc_socket="/tmp/mpv-socket")
+
     while not ev_stop_program.is_set():
         file: str = ""
         file = ml_manager.get_next_media()
 
-        th_show_image = threading.Thread(target=present_content, args=[file])
+        th_show_image = threading.Thread(target=present_content, args=[mpv, file])
         th_show_image.start()
         ev_stop_program.wait(timeout=presentation_config.timeout)
-        #th_show_image.join()
+        # th_show_image.join()
         ev_stop_showing_img.set()
         ev_stop_showing_img.clear()
     # endwhile
+
+
+def start_mpv_json_ipc_server():
+    mpv = subprocess.Popen(f"exec {presentation_config.viewer} "\
+                            "--input-ipc-server=/tmp/mpv-socket "\
+                            "/tmp/a/aprs.fi.png", shell=True)
 
 
 def main():
@@ -218,9 +234,9 @@ def main():
 
     if args.media:
         media = args.media
-        if (len(media) > 0):
+        if len(media) > 0:
             for m in media:
-                if(not len(m) == 2):
+                if not len(m) == 2:
                     logger.error("Expecting argument to be of format <path> <n>")
                     ev_stop_program.set()
                     break
@@ -229,7 +245,7 @@ def main():
 
     if args.viewer:
         presentation_config.viewer = str(args.viewer)
-    
+
     if args.timeout:
         presentation_config.timeout = int(args.timeout)
 
