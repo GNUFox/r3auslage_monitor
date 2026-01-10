@@ -8,7 +8,7 @@
             "name": "Viewer",
             "type": "debugpy",
             "request": "launch",
-            "program": "present.py",
+            "program": "main.py",
             "console": "integratedTerminal",
             "args": [
                 "-m", "${workspaceFolder}/webpages", "1",
@@ -16,6 +16,16 @@
                 "-m", "${workspaceFolder}/videos", "1",
                 "--viewer", "mpv --loop --ao=null",
                 "-t", "2"
+            ]
+        },
+        {
+            "name": "Viewer config",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "main.py",
+            "console": "integratedTerminal",
+            "args": [
+                "-c", "./config.ini"
             ]
         },
         {
