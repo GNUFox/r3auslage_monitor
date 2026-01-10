@@ -17,7 +17,7 @@ ev_stop_program: threading.Event = threading.Event()
 class Config:
     def __init__(self, config_file: [str | None] = None):
         self.media_show_time: int = 2
-        self.viewer: str = "mpv --loop --ao=null"
+        self.mpv_options: str = "--loop --ao=null"
         self.random: bool = False
         self.verbosity_level: int = 0
 
@@ -44,7 +44,7 @@ class Config:
             if "media_show_time" in BASIC:
                 self.media_show_time = int(BASIC["media_show_time"])
             if "mpv_options" in BASIC:
-                self.mpv_options = BASIC["mpv_options"]
+                self.mpv_options = BASIC["mpv_options"].strip('"')
             if "random" in BASIC:
                 self.random = bool(BASIC["random"])
             if "verbosity_level" in BASIC:
@@ -90,12 +90,6 @@ presentation_config: Config = Config()
 
 def present_content(mpv: MPV, path: str):
     """Runs framebuffer program to present content refered to by 'path'"""
-    # viewer = subprocess.Popen(f"exec {presentation_config.viewer} {path}", shell=True)
-    # ev_stop_showing_img.wait()
-    # os.kill(viewer.pid, signal.SIGKILL)
-    # time.sleep(0.5)
-    # viewer.terminate()
-    # viewer.kill()
     mpv.play(path)
 
 
@@ -129,6 +123,6 @@ def run_slideshow():
 
 def start_mpv_json_ipc_server():
     mpv = subprocess.Popen(
-        f"exec {presentation_config.viewer} "
+        f"exec mpv {presentation_config.mpv_options} "
         "--input-ipc-server=/tmp/mpv-socket "
         "pixel.png", shell=True)

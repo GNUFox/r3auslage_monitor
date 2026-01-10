@@ -35,10 +35,10 @@ def main():
         help="[media directory] (n)   n: show n media files from this dir consecutively",
     )
     parser.add_argument(
-        "--viewer",
+        "--mpv-options",
         type=str,
-        dest="viewer",
-        help="name of / path to the image viewer to use",
+        dest="mpv_opts",
+        help="additional options passed to mpv",
     )
     parser.add_argument("-t", "--media_show_time", type=int, dest="media_show_time", help="how long to show each media file")
 
@@ -65,8 +65,8 @@ def main():
         if not ev_stop_program.is_set():
             presentation_config.add_media_from_cmd_line(args.media)
 
-    if args.viewer:
-        presentation_config.viewer = str(args.viewer)
+    if args.mpv_opts:
+        presentation_config.mpv_options = str(args.mpv_opts)
 
     if args.media_show_time:
         presentation_config.media_show_time = int(args.media_show_time)
@@ -76,3 +76,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
