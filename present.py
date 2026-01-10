@@ -22,7 +22,7 @@ class Config:
         self.verbosity_level: int = 0
 
         self.media: list[dict] = []
-        
+
         self.mpv_ipc_socket: str = "/tmp/mpv-socket"
         self.mpv: MPV
 
@@ -32,24 +32,24 @@ class Config:
         if not os.path.isfile(config_file):
             logging.critical(f"config file '{config_file}' does not exists, using defaults")
             return
-      
+
         config = configparser.ConfigParser()
         config.read(config_file)
-        
+
         # BASIC config
         if "BASIC" not in config:
             logger.warn("Missing BASIC section in config file, using defaults")
         else:
-            BASIC = config['BASIC']
+            BASIC = config["BASIC"]
             if "media_show_time" in BASIC:
-                self.media_show_time = int(BASIC['media_show_time'])
+                self.media_show_time = int(BASIC["media_show_time"])
             if "mpv_options" in BASIC:
-                self.mpv_options = BASIC['mpv_options']
+                self.mpv_options = BASIC["mpv_options"]
             if "random" in BASIC:
-                self.random = bool(BASIC['random'])
+                self.random = bool(BASIC["random"])
             if "verbosity_level" in BASIC:
-                self.verbosity_level = int(BASIC['verbosity_level'])
-        
+                self.verbosity_level = int(BASIC["verbosity_level"])
+
         # Media sections
         for config_section in config:
             if config_section.startswith("media"):
@@ -58,32 +58,35 @@ class Config:
                 show_in_a_row = 1
                 run_script = ""
                 if "path" in media_section:
-                    path = str(media_section['path'])
+                    path = str(media_section["path"])
                 if "show_in_a_row" in media_section:
-                    show_in_a_row = int(media_section['show_in_a_row'])
+                    show_in_a_row = int(media_section["show_in_a_row"])
                 if "run_script" in media_section:
-                    run_script = str(media_section['run_script'])
-                
+                    run_script = str(media_section["run_script"])
+
                 self.add_media_from_cmd_line([[path, show_in_a_row, run_script]])
-    
+
     def add_media_from_cmd_line(self, cmdline_media):
         for m in cmdline_media:
             if len(m) <= 3 and len(m) >= 1:
                 self.media.append(self._get_media_dict(m))
             else:
                 logging.warn(f"commandline argument {m} number of entries does not match, must be 1 to 3, see help")
-    
+
     def _get_media_dict(self, cmdline_media_entry):
         md = dict()
-        md['path'] = cmdline_media_entry[0]
-        if(len(cmdline_media_entry) >= 2):
-            md['show_in_row'] = cmdline_media_entry[1]
-        if(len(cmdline_media_entry) >= 3):
-            md['run_script'] = cmdline_media_entry[2]
+        md["path"] = cmdline_media_entry[0]
+        md["show_in_row"] = 1
+        md["run_script"] = ""
+        if len(cmdline_media_entry) >= 2:
+            md["show_in_row"] = int(cmdline_media_entry[1])
+        if len(cmdline_media_entry) >= 3:
+            md["run_script"] = cmdline_media_entry[2]
         return md
 
 
 presentation_config: Config = Config()
+
 
 def present_content(mpv: MPV, path: str):
     """Runs framebuffer program to present content refered to by 'path'"""
@@ -100,7 +103,7 @@ def run_slideshow():
     """Controls the slideshow flow"""
     ml_manager: MediaListManager = MediaListManager()
     for m in presentation_config.media:
-        ml = MediaList(m['path'], m['show_in_row'], m['run_script'])
+        ml = MediaList(m["path"], m["show_in_row"], m["run_script"])
         ml_manager.add_media_list(ml)
 
     if not ml_manager.is_there_something_to_show():
@@ -108,7 +111,7 @@ def run_slideshow():
         return
 
     start_mpv_json_ipc_server()
-    time.sleep(5) # give mpv some time to start :(, hdd is slow
+    time.sleep(5)  # give mpv some time to start :(, hdd is slow
     mpv = MPV(start_mpv=False, ipc_socket="/tmp/mpv-socket")
 
     while not ev_stop_program.is_set():
@@ -125,8 +128,7 @@ def run_slideshow():
 
 
 def start_mpv_json_ipc_server():
-    mpv = subprocess.Popen(f"exec {presentation_config.viewer} "\
-                            "--input-ipc-server=/tmp/mpv-socket "\
-                            "pixel.png", shell=True)
-
-
+    mpv = subprocess.Popen(
+        f"exec {presentation_config.viewer} "
+        "--input-ipc-server=/tmp/mpv-socket "
+        "pixel.png", shell=True)
