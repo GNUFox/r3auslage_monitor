@@ -76,10 +76,10 @@ class Config:
     def _get_media_dict(self, cmdline_media_entry):
         md = dict()
         md["path"] = cmdline_media_entry[0]
-        md["show_in_row"] = 1
+        md["show_in_a_row"] = 1
         md["run_script"] = ""
         if len(cmdline_media_entry) >= 2:
-            md["show_in_row"] = int(cmdline_media_entry[1])
+            md["show_in_a_row"] = int(cmdline_media_entry[1])
         if len(cmdline_media_entry) >= 3:
             md["run_script"] = cmdline_media_entry[2]
         return md
@@ -90,14 +90,21 @@ presentation_config: Config = Config()
 
 def present_content(mpv: MPV, path: str):
     """Runs framebuffer program to present content refered to by 'path'"""
+    print(f"Now presenting: {path}")
     mpv.play(path)
+
+def check_if_content_is_done(mpv: MPV):
+    """Checks if a video or other playing content has finished playing"""
+    time_remain = mpv.command("get_property", "time-remaining/full")
+    if(time_remain):
+        print(f"time remaining: ${time_remain}\n\n\n")
 
 
 def run_slideshow():
     """Controls the slideshow flow"""
     ml_manager: MediaListManager = MediaListManager()
     for m in presentation_config.media:
-        ml = MediaList(m["path"], m["show_in_row"], m["run_script"])
+        ml = MediaList(m["path"], m["show_in_a_row"], m["run_script"])
         ml_manager.add_media_list(ml)
 
     if not ml_manager.is_there_something_to_show():
@@ -106,7 +113,12 @@ def run_slideshow():
 
     start_mpv_json_ipc_server()
     time.sleep(5)  # give mpv some time to start :(, hdd is slow
-    mpv = MPV(start_mpv=False, ipc_socket="/tmp/mpv-socket")
+    mpv = None
+    try:
+        mpv = MPV(start_mpv=False, ipc_socket="/tmp/mpv-socket")
+    except ConnectionRefusedError:
+        logger.warning("MPV failed to start")
+        return
 
     while not ev_stop_program.is_set():
         file: str = ""
@@ -114,7 +126,10 @@ def run_slideshow():
 
         th_show_image = threading.Thread(target=present_content, args=[mpv, file])
         th_show_image.start()
+
         ev_stop_program.wait(timeout=presentation_config.media_show_time)
+        check_if_content_is_done(mpv)
+
         # th_show_image.join()
         ev_stop_showing_img.set()
         ev_stop_showing_img.clear()

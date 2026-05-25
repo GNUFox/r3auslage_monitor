@@ -14,7 +14,7 @@
                 "-m", "${workspaceFolder}/webpages", "1",
                 "-m", "${workspaceFolder}/photos", "3",
                 "-m", "${workspaceFolder}/videos", "1",
-                "--mpv-options", "--loop --ao=null",
+                "--mpv-options", "--ao=null",
                 "-t", "2"
             ]
         },

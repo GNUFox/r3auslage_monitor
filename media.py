@@ -27,16 +27,20 @@ class MediaList:
         self.n_show_in_a_row = show_in_a_row
         self._n_showed = 0
 
-        # TODO: check if path exists
         if len(path) == 0:
             logger.warning("path empty")
+            self._correct = False
+            return
+        
+        if not os.path.isdir(path):
+            logger.warning(f"folder '{path}' not found")
             self._correct = False
             return
         
         self._l_path = [
             os.path.join(path, contents)
             for contents in os.listdir(path)
-            if os.path.isfile(os.path.join(path, contents))
+            if os.path.isfile(os.path.join(path, contents)) and not contents.startswith(".")
         ]
 
         if len(self._l_path) == 0:
